@@ -75,21 +75,7 @@ public class Chests {
         System.out.println("Skipping corrupt chest");
         continue;
       }
-      Chest chest = new Chest(coord);
-      if (tag.containsKey("owner")) {
-        chest.owner = tag.getString("owner").get();
-      }
-      if (tag.containsKey("name")) {
-        chest.name = tag.getString("name").get();
-      }
-      if (tag.containsKey("keys")) {
-        chest.keys = new ArrayList<String>();
-        NBTList<NBTCompound> keysNode = tag.getList("keys").cast();
-        for (int j = 0; j < keysNode.size(); j++) {
-          NBTCompound keyTag = keysNode.get(j);
-          chest.keys.add(keyTag.getString("target").get());
-        }
-      }
+      Chest chest = new Chest(coord, tag);
       locations.put(coord, chest);
     }
   }
@@ -99,12 +85,7 @@ public class Chests {
     old.load();
     for (Coordinate coord : old.locations.keySet()) {
       simpleserver.config.LegacyChestList.Chest chest = old.locations.get(coord);
-      Chest newChest = new Chest(coord);
-      if ((!chest.isOpen()) && (chest.name().equals("Locked chest") || chest.name().length() == 0)) {
-        newChest.owner = chest.owner();
-      } else {
-        newChest.name = chest.name();
-      }
+      Chest newChest = new Chest(coord, chest);
       locations.put(coord, newChest);
     }
     old.save();
@@ -113,24 +94,7 @@ public class Chests {
   void save() {
     NBTList<NBTCompound> node = new NBTList<NBTCompound>(CHESTS, NBT.COMPOUND);
     for (Chest chest : locations.values()) {
-      NBTCompound tag = new NBTCompound();
-      tag.put(chest.coordinate.tag());
-      if (!chest.isOpen()) {
-        tag.put(new NBTString("owner", chest.owner.toLowerCase()));
-        if (chest.name != null) {
-          tag.put(new NBTString("name", chest.name));
-        }
-        if (chest.keys != null) {
-          NBTList<NBTCompound> keysNode = new NBTList<NBTCompound>("Keys", NBT.COMPOUND);
-          for (String curKey : chest.keys) {
-            NBTCompound keyTag = new NBTCompound();
-            tag.put(new NBTString("target", curKey));
-            keysNode.add(keyTag);
-          }
-          tag.put(keysNode);
-        }
-      }
-      node.add(tag);
+      node.add(chest.save());
     }
     root.put(node);
   }
@@ -141,20 +105,20 @@ public class Chests {
     }
   }
 
+  public void addOpenChest(Coordinate coordinate) {
+    locations.put(coordinate, new Chest(coordinate));
+  }
+
+  public void removeChest(Coordinate coordinate) {
+    locations.remove(coordinate);
+  }
+
   public Chest get(Coordinate coordinate) {
     if (isChest(coordinate)) {
       return locations.get(coordinate);
     } else {
       return null;
     }
-  }
-
-  public boolean isLocked(Coordinate coordinate) {
-    return isChest(coordinate) && !get(coordinate).isOpen();
-  }
-
-  public void releaseLock(Coordinate coordinate) {
-    locations.remove(coordinate);
   }
 
   public boolean isChest(Coordinate coordinate) {
@@ -175,8 +139,42 @@ public class Chests {
     return chest;
   }
 
-  public boolean canOpen(Player player, Coordinate coordinate) {
-    return !isLocked(coordinate) || get(coordinate).ownedBy(player);
+  // TODO: make this list also show keys associated with each chest
+  public Map<String, Integer> chestList(Player player) {
+    Map<String, Integer> list = new HashMap<String, Integer>();
+    for (Chest chest : locations.values()) {
+      if (chest.isOwner(player)) {
+        String chestName = chest.getName();
+        if (list.containsKey(chestName)) {
+          list.put(chestName, list.get(chestName) + 1);
+        } else {
+          list.put(chestName, 1);
+        }
+      }
+    }
+    return list;
+  }
+
+  public void addLock(Coordinate coordinate, Player player, String name) {
+    if (isChest(coordinate)) {
+      Chest chest = get(coordinate);
+      chest.addLock(player, name);
+    } else {
+      Chest chest = new Chest(coordinate);
+      chest.addLock(player, name);
+      locations.put(coordinate, chest);
+    }
+  }
+
+  public void copyLock(Coordinate coordinate, Chest otherChest) {
+    if (isChest(coordinate)) {
+      Chest chest = get(coordinate);
+      chest.copyLock(otherChest);
+    } else {
+      Chest chest = new Chest(coordinate);
+      chest.copyLock(otherChest);
+      locations.put(coordinate, chest);
+    }
   }
 
   public void unlock(Coordinate coordinate) {
@@ -189,61 +187,26 @@ public class Chests {
     }
   }
 
+  public boolean isOwner(Player player, Coordinate coordinate) {
+    return get(coordinate).isOwner(player);
+  }
+
+  public boolean isLocked(Coordinate coordinate) {
+    return isChest(coordinate) && get(coordinate).isLocked();
+  }
+
   public String chestName(Coordinate coordinate) {
-    if (isLocked(coordinate)) {
-      if (get(coordinate).name != null) {
-        return get(coordinate).name;
-      } else {
-        return t("Locked Chest");
-      }
+    if (isChest(coordinate)) {
+      return get(coordinate).getName();
     } else {
       return t("Open Chest");
     }
   }
 
-  public void giveLock(String owner, Coordinate coordinate, String name) {
-    if (isChest(coordinate)) {
-      Chest chest = get(coordinate);
-      chest.name = name;
-      chest.owner = owner;
-    } else {
-      Chest chest = new Chest(coordinate);
-      chest.owner = owner;
-      chest.name = name;
-      locations.put(coordinate, chest);
-    }
-  }
-
-  public void giveLock(Player player, Coordinate coordinate, String name) {
-    giveLock(player.getName().toLowerCase(), coordinate, name);
-  }
-
-  public void addOpenChest(Coordinate coordinate) {
-    locations.put(coordinate, new Chest(coordinate));
-  }
-
-  public Map<String, Integer> chestList(Player player) {
-    Map<String, Integer> list = new HashMap<String, Integer>();
-    for (Chest chest : locations.values()) {
-      if (chest.ownedBy(player)) {
-        if (list.containsKey(chest.name)) {
-          list.put(chest.name, list.get(chest.name) + 1);
-        } else {
-          list.put(chest.name, 1);
-        }
-      }
-    }
-    if (list.containsKey(null)) {
-      list.put(t("Locked Chest"), list.get(null));
-      list.remove(null);
-    }
-    return list;
-  }
-
   public List<Chest> getChestsByName(String name) {
     List<Chest> chests = new ArrayList<Chest>();
     for (Chest chest : locations.values()) {
-      if (chest.name != null && chest.name.equals(name)) {
+      if (chest.getName().equals(name)) {
         chests.add(chest);
       }
     }
@@ -251,26 +214,103 @@ public class Chests {
   }
 
   public static final class Chest {
-    public String owner;
     public final Coordinate coordinate;
-    public String name;
-    public ArrayList<String> keys;
+    private String owner;
+    private String name;
+    private ArrayList<String> keys;
 
     private Chest(Coordinate coordinate) {
       this.coordinate = coordinate;
     }
 
-    public boolean isOpen() {
-      return owner == null;
+    private Chest(Coordinate coordinate, NBTCompound tag) {
+      this.coordinate = coordinate;
+      if (tag.containsKey("owner")) {
+        owner = tag.getString("owner").get();
+      }
+      if (tag.containsKey("name")) {
+        name = tag.getString("name").get();
+      }
+      if (tag.containsKey("keys")) {
+        keys = new ArrayList<String>();
+        NBTList<NBTCompound> keysNode = tag.getList("keys").cast();
+        for (int j = 0; j < keysNode.size(); j++) {
+          NBTCompound keyTag = keysNode.get(j);
+          keys.add(keyTag.getString("target").get());
+        }
+      }
     }
 
-    public void lock(Player player) {
+    private Chest(Coordinate coordinate, simpleserver.config.LegacyChestList.Chest chest) {
+      this.coordinate = coordinate;
+      if ((!chest.isOpen()) && (chest.name().equals("Locked chest") || chest.name().length() == 0)) {
+        owner = chest.owner();
+      } else {
+        name = chest.name();
+      }
+    }
+
+    private NBTCompound save() {
+      NBTCompound tag = new NBTCompound();
+      tag.put(coordinate.tag());
+      if (isLocked()) {
+        tag.put(new NBTString("owner", owner.toLowerCase()));
+        if (name != null) {
+          tag.put(new NBTString("name", name));
+        }
+        if (keys != null) {
+          NBTList<NBTCompound> keysNode = new NBTList<NBTCompound>("Keys", NBT.COMPOUND);
+          for (String curKey : keys) {
+            NBTCompound keyTag = new NBTCompound();
+            tag.put(new NBTString("target", curKey));
+            keysNode.add(keyTag);
+          }
+          tag.put(keysNode);
+        }
+      }
+      return tag;
+    }
+
+    public void addLock(Player player, String name) {
       owner = player.getName().toLowerCase();
+      this.name = name;
+      keys = null;
+    }
+
+    public void copyLock(Chest otherChest) {
+      name = otherChest.name;
+      owner = otherChest.owner;
+      if (otherChest.keys == null) {
+        keys = null;
+      } else {
+        keys = (ArrayList<String>) otherChest.keys.clone();
+      }
     }
 
     public void unlock() {
       owner = null;
       name = null;
+      keys = null;
+    }
+
+    public boolean isLocked() {
+      return owner != null;
+    }
+
+    public boolean isOwner(Player player) {
+      return owner != null && owner.equals(player.getName().toLowerCase());
+    }
+
+    public String getName() {
+      if (isLocked()) {
+        if (name != null) {
+          return name;
+        } else {
+          return t("Locked Chest");
+        }
+      } else {
+        return t("Open Chest");
+      }
     }
 
     public boolean toggleAccess(String playerName) {
@@ -298,10 +338,6 @@ public class Chests {
         return true;
       }
       return false;
-    }
-
-    public boolean ownedBy(Player player) {
-      return owner != null && owner.equals(player.getName().toLowerCase());
     }
   }
 }

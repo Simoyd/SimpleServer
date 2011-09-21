@@ -40,11 +40,6 @@ public class KeyCommand extends AbstractCommand implements PlayerCommand {
       player.addTMessage(Color.RED, "Names longer than 16 characters are not allowed.");
       return;
     }
-    if (!player.getServer().config.players.contains(targetPlayer))
-    {
-      player.addTMessage(Color.RED, "%s has never been on this server.", targetPlayer);
-      return;
-    }
     player.addTMessage(Color.GRAY, "Open a locked chest to toggle access for %s.", targetPlayer);
     player.setAttemptedAction(Action.Key);
     player.setChestArgument(targetPlayer);

@@ -36,12 +36,12 @@ import java.io.OutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import simpleserver.Authenticator.AuthRequest;
 import simpleserver.Color;
 import simpleserver.Coordinate;
+import simpleserver.Coordinate.Dimension;
 import simpleserver.Player;
 import simpleserver.Server;
-import simpleserver.Authenticator.AuthRequest;
-import simpleserver.Coordinate.Dimension;
 import simpleserver.command.PlayerListCommand;
 import simpleserver.config.data.Chests.Chest;
 import simpleserver.config.xml.Config.BlockPermission;
@@ -395,9 +395,9 @@ public class StreamTunnel {
 
           boolean locked = server.data.chests.isLocked(coordinate);
 
-          if (!locked || player.ignoresChestLocks() || server.data.chests.canOpen(player, coordinate)) {
+          if (!locked || player.ignoresChestLocks() || server.data.chests.isOwner(player, coordinate)) {
             if (locked && status == BLOCK_DESTROYED_STATUS) {
-              server.data.chests.releaseLock(coordinate);
+              server.data.chests.removeChest(coordinate);
               server.data.save();
             }
 
@@ -486,7 +486,7 @@ public class StreamTunnel {
 
           Chest adjacentChest = server.data.chests.adjacentChest(targetBlock);
 
-          if (adjacentChest != null && !adjacentChest.isOpen() && !adjacentChest.ownedBy(player)) {
+          if (adjacentChest != null && adjacentChest.isLocked() && !adjacentChest.isOwner(player)) {
             player.addTMessage(Color.RED, "The adjacent chest is locked!");
             writePacket = false;
             drop = true;
@@ -752,14 +752,14 @@ public class StreamTunnel {
             if (adjacent == null) {
               server.data.chests.addOpenChest(player.openedChest());
             } else {
-              server.data.chests.giveLock(adjacent.owner, player.openedChest(), adjacent.name);
+              server.data.chests.copyLock(player.openedChest(), adjacent);
             }
             server.data.save();
           }
           if (!player.getGroup().ignoreAreas && (!server.config.blockPermission(player, player.openedChest()).chest || (adjacent != null && !server.config.blockPermission(player, adjacent.coordinate).chest))) {
             player.addTMessage(Color.RED, "You can't use chests here");
             allow = false;
-          } else if (server.data.chests.canOpen(player, player.openedChest()) || player.ignoresChestLocks()) {
+          } else if (!server.data.chests.isLocked(player.openedChest()) || player.ignoresChestLocks() || server.data.chests.isOwner(player, player.openedChest())) {
             if (server.data.chests.isLocked(player.openedChest())) {
               if (player.isAttemptingUnlock()) {
                 server.data.chests.unlock(player.openedChest());
@@ -949,8 +949,8 @@ public class StreamTunnel {
                 + player.getName() + " (after 0x" + Integer.toHexString(lastPacket));
           } else {
             throw new IOException("Unable to parse unknown " + streamType
-                                  + " packet 0x" + Integer.toHexString(packetId) + " for player "
-                                  + player.getName());
+                + " packet 0x" + Integer.toHexString(packetId) + " for player "
+                + player.getName());
           }
         }
     }
@@ -983,15 +983,14 @@ public class StreamTunnel {
 
   private void lockChest(Coordinate coordinate) {
     Chest adjacentChest = server.data.chests.adjacentChest(coordinate);
-    if (player.isAttemptLock() || adjacentChest != null && !adjacentChest.isOpen()) {
-      if (adjacentChest != null && !adjacentChest.isOpen()) {
-        server.data.chests.giveLock(adjacentChest.owner, coordinate, adjacentChest.name);
+    if (player.isAttemptLock() || adjacentChest != null && adjacentChest.isLocked()) {
+      if (adjacentChest != null && adjacentChest.isLocked()) {
+        server.data.chests.copyLock(coordinate, adjacentChest);
       } else {
         if (adjacentChest != null) {
-          adjacentChest.lock(player);
-          adjacentChest.name = player.getChestArgument();
+          adjacentChest.addLock(player, player.getChestArgument());
         }
-        server.data.chests.giveLock(player, coordinate, player.getChestArgument());
+        server.data.chests.addLock(coordinate, player, player.getChestArgument());
       }
       player.setAttemptedAction(null);
       player.addTMessage(Color.GRAY, "This chest is now locked.");
