@@ -75,15 +75,19 @@ public class Chests {
         System.out.println("Skipping corrupt chest");
         continue;
       }
-      Chest chest;
-      if (!tag.containsKey("owner")) {
-        chest = new Chest(coord);
-      } else {
-        String owner = tag.getString("owner").get();
-        if (!tag.containsKey("name")) {
-          chest = new Chest(owner, coord);
-        } else {
-          chest = new Chest(owner, coord, tag.getString("name").get());
+      Chest chest = new Chest(coord);
+      if (tag.containsKey("owner")) {
+        chest.owner = tag.getString("owner").get();
+      }
+      if (tag.containsKey("name")) {
+        chest.name = tag.getString("name").get();
+      }
+      if (tag.containsKey("keys")) {
+        chest.keys = new ArrayList<String>();
+        NBTList<NBTCompound> keysNode = tag.getList("keys").cast();
+        for (int j = 0; j < keysNode.size(); j++) {
+          NBTCompound keyTag = keysNode.get(j);
+          chest.keys.add(keyTag.getString("target").get());
         }
       }
       locations.put(coord, chest);
@@ -95,13 +99,13 @@ public class Chests {
     old.load();
     for (Coordinate coord : old.locations.keySet()) {
       simpleserver.config.LegacyChestList.Chest chest = old.locations.get(coord);
-      if (chest.isOpen()) {
-        locations.put(coord, new Chest(coord));
-      } else if (chest.name().equals("Locked chest") || chest.name().length() == 0) {
-        locations.put(coord, new Chest(chest.owner(), coord));
+      Chest newChest = new Chest(coord);
+      if ((!chest.isOpen()) && (chest.name().equals("Locked chest") || chest.name().length() == 0)) {
+        newChest.owner = chest.owner();
       } else {
-        locations.put(coord, new Chest(chest.owner(), coord, chest.name()));
+        newChest.name = chest.name();
       }
+      locations.put(coord, newChest);
     }
     old.save();
   }
@@ -115,6 +119,15 @@ public class Chests {
         tag.put(new NBTString("owner", chest.owner.toLowerCase()));
         if (chest.name != null) {
           tag.put(new NBTString("name", chest.name));
+        }
+        if (chest.keys != null) {
+          NBTList<NBTCompound> keysNode = new NBTList<NBTCompound>("Keys", NBT.COMPOUND);
+          for (String curKey : chest.keys) {
+            NBTCompound keyTag = new NBTCompound();
+            tag.put(new NBTString("target", curKey));
+            keysNode.add(keyTag);
+          }
+          tag.put(keysNode);
         }
       }
       node.add(tag);
@@ -194,7 +207,10 @@ public class Chests {
       chest.name = name;
       chest.owner = owner;
     } else {
-      locations.put(coordinate, new Chest(owner, coordinate, name));
+      Chest chest = new Chest(coordinate);
+      chest.owner = owner;
+      chest.name = name;
+      locations.put(coordinate, chest);
     }
   }
 
@@ -238,17 +254,7 @@ public class Chests {
     public String owner;
     public final Coordinate coordinate;
     public String name;
-
-    private Chest(String player, Coordinate coordinate, String name) {
-      owner = player;
-      this.coordinate = coordinate;
-      this.name = name;
-    }
-
-    private Chest(String player, Coordinate coordinate) {
-      owner = player;
-      this.coordinate = coordinate;
-    }
+    public ArrayList<String> keys;
 
     private Chest(Coordinate coordinate) {
       this.coordinate = coordinate;
@@ -265,6 +271,33 @@ public class Chests {
     public void unlock() {
       owner = null;
       name = null;
+    }
+
+    public boolean toggleAccess(String playerName) {
+      playerName = playerName.toLowerCase();
+      if (keys == null) {
+        keys = new ArrayList<String>();
+      }
+      if (keys.contains(playerName))
+      {
+        keys.remove(playerName);
+        return false;
+      }
+      else
+      {
+        keys.add(playerName);
+        return true;
+      }
+    }
+
+    public boolean hasAccess(Player player) {
+      String playerName = player.getName().toLowerCase();
+      if ((owner == null) ||
+          (owner.equals(playerName)) ||
+          ((keys != null) && (keys.contains(playerName)))) {
+        return true;
+      }
+      return false;
     }
 
     public boolean ownedBy(Player player) {
