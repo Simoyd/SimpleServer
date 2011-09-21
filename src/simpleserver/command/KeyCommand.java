@@ -20,44 +20,33 @@
  */
 package simpleserver.command;
 
-import java.util.Map;
-
 import simpleserver.Color;
 import simpleserver.Player;
 import simpleserver.Player.Action;
 
-public class LockCommand extends AbstractCommand implements PlayerCommand {
-  public LockCommand() {
-    super("lock [name|list]", "Create or list locked chests");
+public class KeyCommand extends AbstractCommand implements PlayerCommand {
+  public KeyCommand() {
+    super("key PLAYER", "Create or revoke key to a locked chest");
   }
 
   public void execute(Player player, String message) {
-    String name = extractArgument(message);
-    if (name == null) {
-      if (player.isAttemptLock()) {
-        player.setAttemptedAction(null);
-        player.addTMessage(Color.GRAY, "Chests you place or open will no longer be locked.");
-        return;
-      }
+    String[] arguments = extractArguments(message);
+    if ((arguments.length == 0) || (arguments[0] == null)) {
+      player.addTMessage(Color.RED, "No player specified");
+      return;
     }
-    if (name != null && name.equals("list")) {
-      Map<String, Integer> list = player.getServer().data.chests.chestList(player);
-      if (list.size() == 0) {
-        player.addTMessage(Color.GRAY, "You don't have any locked chests.");
-      } else {
-        player.addTMessage(Color.GRAY, "Your locked chests:");
-        for (String current : list.keySet()) {
-          player.addMessage(Color.GRAY, list.get(current) + " " + current);
-        }
-      }
-    } else {
-      if (name != null && name.length() > 16) {
-        player.addTMessage(Color.RED, "Names longer than 16 characters are not allowed.");
-        return;
-      }
-      player.addTMessage(Color.GRAY, "Create or open a chest, and it will be locked to you.");
-      player.setAttemptedAction(Action.Lock);
-      player.setChestArgument(name);
+    String targetPlayer = arguments[0];
+    if (targetPlayer.length() > 16) {
+      player.addTMessage(Color.RED, "Names longer than 16 characters are not allowed.");
+      return;
     }
+    if (!player.getServer().config.players.contains(targetPlayer))
+    {
+      player.addTMessage(Color.RED, "%s has never been on this server.", targetPlayer);
+      return;
+    }
+    player.addTMessage(Color.GRAY, "Open a locked chest to toggle access for %s.", targetPlayer);
+    player.setAttemptedAction(Action.Key);
+    player.setChestArgument(targetPlayer);
   }
 }

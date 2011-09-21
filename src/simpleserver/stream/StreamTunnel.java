@@ -774,7 +774,7 @@ public class StreamTunnel {
               typeString = t("Open Chest");
               if (player.isAttemptLock()) {
                 lockChest(player.openedChest());
-                typeString = (player.nextChestName() == null) ? t("Locked Chest") : player.nextChestName();
+                typeString = (player.getChestArgument() == null) ? t("Locked Chest") : player.getChestArgument();
               }
             }
 
@@ -989,9 +989,9 @@ public class StreamTunnel {
       } else {
         if (adjacentChest != null) {
           adjacentChest.lock(player);
-          adjacentChest.name = player.nextChestName();
+          adjacentChest.name = player.getChestArgument();
         }
-        server.data.chests.giveLock(player, coordinate, player.nextChestName());
+        server.data.chests.giveLock(player, coordinate, player.getChestArgument());
       }
       player.setAttemptedAction(null);
       player.addTMessage(Color.GRAY, "This chest is now locked.");

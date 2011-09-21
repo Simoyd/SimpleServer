@@ -84,6 +84,7 @@
 	</command>
 	<command name="home" allow="1+" />
 	<command name="iddqd" allow="4+" />
+	<command name="key" allow="1+" />
 	<command name="kick" allow="3+" />
 	<command name="kit" allow="1+">
 		<alias>kits</alias>

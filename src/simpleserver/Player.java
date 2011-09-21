@@ -33,17 +33,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.xml.sax.SAXException;
 
 import simpleserver.Coordinate.Dimension;
+import simpleserver.bot.BotController.ConnectException;
 import simpleserver.bot.Giver;
 import simpleserver.bot.Teleporter;
-import simpleserver.bot.BotController.ConnectException;
 import simpleserver.command.ExternalCommand;
 import simpleserver.command.PlayerCommand;
 import simpleserver.config.KitList.Kit;
 import simpleserver.config.data.Stats.StatField;
 import simpleserver.config.xml.CommandConfig;
+import simpleserver.config.xml.CommandConfig.Forwarding;
 import simpleserver.config.xml.Group;
 import simpleserver.config.xml.Permission;
-import simpleserver.config.xml.CommandConfig.Forwarding;
 import simpleserver.message.AbstractChat;
 import simpleserver.message.Chat;
 import simpleserver.message.GlobalChat;
@@ -92,7 +92,7 @@ public class Player {
 
   private Coordinate chestOpened;
 
-  private String nextChestName;
+  private String chestArgument;
 
   // temporary coordinate storage for /myarea command
   public Coordinate areastart;
@@ -753,16 +753,20 @@ public class Player {
     return chestOpened;
   }
 
-  public void setChestName(String name) {
-    nextChestName = name;
+  public void setChestArgument(String name) {
+    chestArgument = name;
   }
 
-  public String nextChestName() {
-    return nextChestName;
+  public String getChestArgument() {
+    return chestArgument;
   }
 
   public enum Action {
-    Lock, Unlock, Rename;
+    Lock, Unlock, Rename, Key;
+  }
+
+  public boolean isModifyingKeys() {
+    return attemptedAction == Action.Key;
   }
 
   public boolean isAttemptingUnlock() {
