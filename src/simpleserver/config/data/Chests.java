@@ -25,7 +25,6 @@ import static simpleserver.lang.Translations.t;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -140,18 +139,57 @@ public class Chests {
   }
 
   // TODO: make this list also show keys associated with each chest
-  public Map<String, Integer> chestList(Player player) {
-    Map<String, Integer> list = new HashMap<String, Integer>();
+  public HashMap<String, HashMap<ArrayList<String>, Integer>> chestList(Player player) {
+    HashMap<String, HashMap<ArrayList<String>, Integer>> list = new HashMap<String, HashMap<ArrayList<String>, Integer>>();
+    ArrayList<Chest> adjacentChests = new ArrayList<Chest>();
+
     for (Chest chest : locations.values()) {
-      if (chest.isOwner(player)) {
+      if (chest.isOwner(player) && !adjacentChests.contains(chest)) {
         String chestName = chest.getName();
+        HashMap<ArrayList<String>, Integer> chestNameInstances;
         if (list.containsKey(chestName)) {
-          list.put(chestName, list.get(chestName) + 1);
+          chestNameInstances = list.get(chestName);
         } else {
-          list.put(chestName, 1);
+          chestNameInstances = new HashMap<ArrayList<String>, Integer>();
+          list.put(chestName, chestNameInstances);
         }
+
+        ArrayList<String> curChestKeys = chest.keys;
+
+        if (curChestKeys == null) {
+          curChestKeys = new ArrayList<String>();
+        }
+
+        boolean foundMatch = false;
+        for (ArrayList<String> listChestKeys : chestNameInstances.keySet()) {
+          boolean match = true;
+          if (listChestKeys.size() != curChestKeys.size())
+          {
+            match = false;
+          } else {
+            for (String curKey : curChestKeys) {
+              if (!listChestKeys.contains(curKey)) {
+                match = false;
+                break;
+              }
+            }
+          }
+
+          if (match) {
+            chestNameInstances.put(listChestKeys, chestNameInstances.get(listChestKeys) + 1);
+            foundMatch = true;
+            break;
+          }
+        }
+
+        if (!foundMatch) {
+          chestNameInstances.put((ArrayList<String>) curChestKeys.clone(), 1);
+        }
+
+        adjacentChests.add(adjacentChest(chest.coordinate));
       }
     }
+
     return list;
   }
 

@@ -20,7 +20,8 @@
  */
 package simpleserver.command;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import simpleserver.Color;
 import simpleserver.Player;
@@ -41,13 +42,29 @@ public class LockCommand extends AbstractCommand implements PlayerCommand {
       }
     }
     if (name != null && name.equals("list")) {
-      Map<String, Integer> list = player.getServer().data.chests.chestList(player);
+      HashMap<String, HashMap<ArrayList<String>, Integer>> list = player.getServer().data.chests.chestList(player);
       if (list.size() == 0) {
         player.addTMessage(Color.GRAY, "You don't have any locked chests.");
       } else {
         player.addTMessage(Color.GRAY, "Your locked chests:");
         for (String current : list.keySet()) {
-          player.addMessage(Color.GRAY, list.get(current) + " " + current);
+          for (ArrayList<String> cur : list.get(current).keySet()) {
+            String keysText = "Keys: ";
+            if (cur.size() > 0) {
+              boolean first = true;
+              for (String curKey : cur) {
+                if (first) {
+                  first = false;
+                } else {
+                  keysText += ", ";
+                }
+                keysText += curKey;
+              }
+            } else {
+              keysText += "NONE";
+            }
+            player.addTMessage(Color.WHITE, "%s %s - %s" + keysText, list.get(current).get(cur), current, Color.GRAY);
+          }
         }
       }
     } else {
