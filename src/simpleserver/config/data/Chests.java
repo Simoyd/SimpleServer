@@ -187,7 +187,7 @@ public class Chests {
     }
   }
 
-  public boolean isOwner(Player player, Coordinate coordinate) {
+  public boolean isOwner(Coordinate coordinate, Player player) {
     return get(coordinate).isOwner(player);
   }
 
@@ -211,6 +211,23 @@ public class Chests {
       }
     }
     return chests;
+  }
+
+  public boolean tooggleAccess(Coordinate coordinate, String playerName) {
+    if (isChest(coordinate)) {
+      boolean allow = get(coordinate).toggleAccess(playerName);
+      Chest adjacent = adjacentChest(coordinate);
+      if (adjacent != null) {
+        adjacent.setAccess(playerName, allow);
+      }
+      return allow;
+    } else {
+      return false;
+    }
+  }
+
+  public boolean hasAccess(Coordinate coordinate, Player player) {
+    return isChest(coordinate) && get(coordinate).hasAccess(player);
   }
 
   public static final class Chest {
@@ -259,10 +276,10 @@ public class Chests {
           tag.put(new NBTString("name", name));
         }
         if (keys != null) {
-          NBTList<NBTCompound> keysNode = new NBTList<NBTCompound>("Keys", NBT.COMPOUND);
+          NBTList<NBTCompound> keysNode = new NBTList<NBTCompound>("keys", NBT.COMPOUND);
           for (String curKey : keys) {
             NBTCompound keyTag = new NBTCompound();
-            tag.put(new NBTString("target", curKey));
+            keyTag.put(new NBTString("target", curKey));
             keysNode.add(keyTag);
           }
           tag.put(keysNode);
@@ -327,6 +344,25 @@ public class Chests {
       {
         keys.add(playerName);
         return true;
+      }
+    }
+
+    public void setAccess(String playerName, boolean allow) {
+      playerName = playerName.toLowerCase();
+      if (allow)
+      {
+        if (keys == null) {
+          keys = new ArrayList<String>();
+        }
+        if (!keys.contains(playerName))
+        {
+          keys.add(playerName);
+        }
+      } else {
+        if (keys != null && keys.contains(playerName))
+        {
+          keys.remove(playerName);
+        }
       }
     }
 

@@ -395,7 +395,7 @@ public class StreamTunnel {
 
           boolean locked = server.data.chests.isLocked(coordinate);
 
-          if (!locked || player.ignoresChestLocks() || server.data.chests.isOwner(player, coordinate)) {
+          if (!locked || player.ignoresChestLocks() || server.data.chests.isOwner(coordinate, player)) {
             if (locked && status == BLOCK_DESTROYED_STATUS) {
               server.data.chests.removeChest(coordinate);
               server.data.save();
@@ -759,15 +759,24 @@ public class StreamTunnel {
           if (!player.getGroup().ignoreAreas && (!server.config.blockPermission(player, player.openedChest()).chest || (adjacent != null && !server.config.blockPermission(player, adjacent.coordinate).chest))) {
             player.addTMessage(Color.RED, "You can't use chests here");
             allow = false;
-          } else if (!server.data.chests.isLocked(player.openedChest()) || player.ignoresChestLocks() || server.data.chests.isOwner(player, player.openedChest())) {
+          } else if (!server.data.chests.isLocked(player.openedChest()) || player.ignoresChestLocks() || server.data.chests.hasAccess(player.openedChest(), player)) {
             if (server.data.chests.isLocked(player.openedChest())) {
-              if (player.isAttemptingUnlock()) {
+              if (player.isAttemptingUnlock() && server.data.chests.isOwner(player.openedChest(), player)) {
                 server.data.chests.unlock(player.openedChest());
                 server.data.save();
                 player.setAttemptedAction(null);
                 player.addTMessage(Color.RED, "This chest is no longer locked!");
                 typeString = t("Open Chest");
               } else {
+                if (player.isModifyingKeys() && server.data.chests.isOwner(player.openedChest(), player)) {
+                  if (server.data.chests.tooggleAccess(player.openedChest(), player.getChestArgument())) {
+                    player.addTMessage(Color.RED, "Chest access given to %s.", player.getChestArgument());
+                  } else {
+                    player.addTMessage(Color.RED, "Chest access revoked from %s.", player.getChestArgument());
+                  }
+                  player.setAttemptedAction(null);
+                  server.data.save();
+                }
                 typeString = server.data.chests.chestName(player.openedChest());
               }
             } else {
@@ -775,9 +784,11 @@ public class StreamTunnel {
               if (player.isAttemptLock()) {
                 lockChest(player.openedChest());
                 typeString = (player.getChestArgument() == null) ? t("Locked Chest") : player.getChestArgument();
+              } else if (player.isModifyingKeys()) {
+                player.addTMessage(Color.RED, "To create a key, you must first lock this chest.");
+                player.setAttemptedAction(null);
               }
             }
-
           } else {
             player.addTMessage(Color.RED, "This chest is locked!");
             allow = false;
